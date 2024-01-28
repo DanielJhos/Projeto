@@ -4,6 +4,7 @@ Na primeira parte, há opções para gravar em banco de dados o que está em mem
 ![image](https://github.com/DanielJhos/Projeto/assets/70531906/14578612-4a1d-4525-84d8-ab979ffc762b)
 
 A segunda parte é uma busca para trazer as informações vindas de uma requisição Get da API. 
+
 ![image](https://github.com/DanielJhos/Projeto/assets/70531906/ea776dc5-837d-41b0-881b-14d0a9c500af)
 
 
