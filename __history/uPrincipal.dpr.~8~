@@ -1,0 +1,19 @@
+program uPrincipal;
+
+uses
+  Vcl.Forms,
+  uFrmCdPessoa in 'uFrmCdPessoa.pas' {FrmCdPessoa},
+  uPessoa in 'uPessoa.pas',
+  uUtils in 'uUtils.pas',
+  uConnection in 'uConnection.pas' {DataModule1: TDataModule};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TFrmCdPessoa, FrmCdPessoa);
+  Application.CreateForm(TDataModule1, DataModule1);
+  Application.Run;
+  ReportMemoryLeaksOnShutdown := True;
+end.

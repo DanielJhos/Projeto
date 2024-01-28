@@ -1,0 +1,20 @@
+object Conexao: TConexao
+  OnCreate = DataModuleCreate
+  Height = 245
+  Width = 442
+  object FDConnection: TFDConnection
+    Params.Strings = (
+      'Database=PROJETO'
+      'User_Name=postgres'
+      'Password=36217900'
+      'Server=127.0.0.1'
+      'DriverID=PG')
+    Left = 308
+    Top = 106
+  end
+  object FDPhysPgDriverLink: TFDPhysPgDriverLink
+    VendorLib = 'E:\Delphi\Delphi RAD\MonolitoFinanceiro\lib\libpq.dll'
+    Left = 188
+    Top = 106
+  end
+end

@@ -1,0 +1,251 @@
+unit uFrmCdPessoa;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask,
+  JvExMask, JvToolEdit, Vcl.ComCtrls, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf,
+  FireDAC.DApt.Intf, Data.DB, FireDAC.Comp.DataSet, FireDAC.Comp.Client,
+  FireDAC.UI.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool, FireDAC.Stan.Async,
+  FireDAC.Phys, FireDAC.Phys.PG, FireDAC.Phys.PGDef, FireDAC.VCLUI.Wait, FireDAC.DApt,
+  Generics.Collections,
+  uPessoa, Vcl.Grids, Vcl.DBGrids, JvMaskEdit;
+
+type
+  TFrmCdPessoa = class(TForm)
+    edtNome: TEdit;
+    edtDataNascimento: TJvDateEdit;
+    edtSaldoDevedor: TEdit;
+    gpbCadastro: TGroupBox;
+    pgcPrincipal: TPageControl;
+    tbsParte1: TTabSheet;
+    btnAdicionarEmMemoria: TButton;
+    lblNome: TLabel;
+    lblDataNascimento: TLabel;
+    lblSaldoDevedor: TLabel;
+    gbpBancoDados: TGroupBox;
+    btnGravarBancoDados: TButton;
+    btnExcluirPorId: TButton;
+    btnCarregarMemoria: TButton;
+    TabSheet1: TTabSheet;
+    btnMostrarPessoasEmMemoria: TButton;
+    btnBuscar: TButton;
+    DBGrid1: TDBGrid;
+    fmtDados: TFDMemTable;
+    dscDados: TDataSource;
+    fmtDadosNome: TStringField;
+    fmtDadosPreco: TFloatField;
+    fmtDadosCaracteristicas: TStringField;
+    fmtDadosCodigo: TStringField;
+    JvMaskEdit1: TJvMaskEdit;
+    procedure btnAdicionarEmMemoriaClick(Sender: TObject);
+    procedure btnGravarBancoDadosClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure btnExcluirPorIdClick(Sender: TObject);
+    procedure btnCarregarMemoriaClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure btnMostrarPessoasEmMemoriaClick(Sender: TObject);
+    procedure btnBuscarClick(Sender: TObject);
+  private
+    FListaPessoa: TObjectList<TPessoa>;
+    FPessoa: TPessoa;
+    procedure LimparCampos;
+    function ValidarCampos: Boolean;
+  end;
+
+var
+  FrmCdPessoa: TFrmCdPessoa;
+
+implementation
+
+uses
+  uUtils,
+  uConnection,
+  uFrmListaPessoa,
+  RESTRequest4D,
+  DataSet.Serialize,
+  DataSet.Serialize.Adapter.RESTRequest4D,
+  System.JSON,
+  System.StrUtils;
+
+{$R *.dfm}
+
+procedure TFrmCdPessoa.btnAdicionarEmMemoriaClick(Sender: TObject);
+begin
+  if not(ValidarCampos) then
+    Exit;
+
+  const lPessoa = TPessoa.Create;
+  lPessoa.Id := TSequence.NexVal(Conexao.FDConnection);
+  lPessoa.Nome := edtNome.Text;
+  lPessoa.DataNascimento := edtDataNascimento.Date;
+  lPessoa.SaldoDevedor := StrToFloatDef(edtSaldoDevedor.Text, 0);
+  FListaPessoa.Add(lPessoa);
+
+  LimparCampos;
+  Informa('Gravado em memória com sucesso!');
+end;
+
+procedure TFrmCdPessoa.btnBuscarClick(Sender: TObject);
+begin
+  var lResponse := TRequest.New.BaseURL('https://run.mocky.io/v3/c20be17a-bc5c-4736-a5e5-dbcff9591b5a')
+                   .Adapters(TDataSetSerializeAdapter.New(fmtDados))
+                   .Accept('application/json')
+                   .Get;
+
+  if lResponse.StatusCode = 200 then
+  begin
+    var lJsonArray := TJSONObject.ParseJSONValue(lResponse.Content) as TJSONArray;
+
+    if Assigned(lJsonArray) then
+    begin
+      try
+        fmtDados.First;
+
+        for var lJsonArr in lJsonArray do
+        begin
+          fmtDados.Edit;
+
+          var lJsonCaracteristica := lJsonArr.GetValue<TJSONArray>('caracteristicas') as TJSONArray;
+
+          for var lJsonNome in lJsonCaracteristica do
+          begin
+            if not(fmtDadosCaracteristicas.AsString.IsEmpty) then
+              fmtDadosCaracteristicas.AsString := fmtDadosCaracteristicas.AsString + ', ';
+
+            fmtDadosCaracteristicas.AsString := fmtDadosCaracteristicas.AsString + lJsonNome.GetValue<String>('nome');
+          end;
+
+          fmtDados.Next;
+        end;
+      finally
+        lJsonArray.Free;
+      end;
+    end;
+  end;
+end;
+
+procedure TFrmCdPessoa.btnCarregarMemoriaClick(Sender: TObject);
+begin
+  FPessoa.Open(FListaPessoa);
+
+  if FListaPessoa.Count = 0 then
+  begin
+    Informa('Não há nenhuma registro cadastrado!');
+    Exit;
+  end;
+
+  Informa('Registros carregados com sucesso!');
+end;
+
+procedure TFrmCdPessoa.btnExcluirPorIdClick(Sender: TObject);
+begin
+  const lId = InputBox('Excluir pessoa', 'Digite o id da pessoa:', '');
+
+  if StrToIntDef(lId, 0) = 0 then
+  begin
+    Alerta('Informe um id válido!');
+    Exit;
+  end;
+
+  FPessoa.Delete(lId.ToInteger);
+
+  Informa('Registro excluído com sucesso!');
+end;
+
+procedure TFrmCdPessoa.btnGravarBancoDadosClick(Sender: TObject);
+begin
+  if FListaPessoa.Count = 0 then
+  begin
+    Alerta('Não há dados para gravar!');
+    Exit;
+  end;
+
+  FPessoa.Post(FListaPessoa);
+
+  Informa('Gravado em banco de dados com sucesso!');
+end;
+
+procedure TFrmCdPessoa.btnMostrarPessoasEmMemoriaClick(Sender: TObject);
+begin
+  if FListaPessoa.Count = 0 then
+  begin
+    Informa('Não há nenhum registro gravado em memória!');
+    Exit;
+  end;
+
+  const lFrmListaPessoa = TFrmListaPessoa.Create(nil);
+  try
+    for var lListaPessoa in FListaPessoa do
+    begin
+      lFrmListaPessoa.fmtListaPessoa.Open;
+      lFrmListaPessoa.fmtListaPessoa.Append;
+      lFrmListaPessoa.fmtListaPessoaNome.AsString := lListaPessoa.Nome;
+      lFrmListaPessoa.fmtListaPessoaDataNascimento.AsDateTime := lListaPessoa.DataNascimento;
+      lFrmListaPessoa.fmtListaPessoaSaldoDevedor.AsFloat := lListaPessoa.SaldoDevedor;
+      lFrmListaPessoa.fmtListaPessoa.Post;
+    end;
+
+    lFrmListaPessoa.ShowModal;
+  finally
+    lFrmListaPessoa.Free;
+  end;
+end;
+
+procedure TFrmCdPessoa.FormCreate(Sender: TObject);
+begin
+  FPessoa := TPessoa.Create;
+  FListaPessoa := TObjectList<TPessoa>.Create;
+  pgcPrincipal.ActivePage := tbsParte1;
+end;
+
+procedure TFrmCdPessoa.FormDestroy(Sender: TObject);
+begin
+  FListaPessoa.Free;
+  FPessoa.Free;
+end;
+
+procedure TFrmCdPessoa.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if Key = VK_ESCAPE then
+  begin
+    if Confirma('Deseja realmente sair do sistema?') then
+      Close;
+  end;
+end;
+
+procedure TFrmCdPessoa.LimparCampos;
+begin
+  edtNome.Clear;
+  edtDataNascimento.Clear;
+  edtSaldoDevedor.Clear;
+end;
+
+function TFrmCdPessoa.ValidarCampos: Boolean;
+begin
+  Result := True;
+
+  if Trim(edtNome.Text).IsEmpty then
+  begin
+    Alerta('Informe um nome válido!');
+    Exit(False);
+  end;
+
+  if edtDataNascimento.Date = 0 then
+  begin
+    Alerta('Informa uma data de nascimento válida!');
+    Exit(False);
+  end;
+
+  if Trim(edtSaldoDevedor.Text).IsEmpty then
+  begin
+    Alerta('Informe um saldo devedor válido!');
+    Exit(False);
+  end;
+end;
+
+end.

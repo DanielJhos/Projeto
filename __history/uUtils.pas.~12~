@@ -1,0 +1,41 @@
+unit uUtils;
+
+interface
+
+uses
+  FireDAC.Comp.Client;
+
+type
+  TSequence = class
+  public
+    class function NexVal(const AConexao: TFDConnection): Integer;
+  end;
+
+  procedure Alerta(const AMensagem: String);
+
+implementation
+
+uses
+  Vcl.Dialogs;
+
+{ TSequence }
+
+class function TSequence.NexVal(const AConexao: TFDConnection): Integer;
+begin
+  const lQuery = TFDQuery.Create(nil);
+  try
+    lQuery.Connection := AConexao;
+    lQuery.Open('SELECT NEXTVAL(''pessoa_id'')');
+    Result := lQuery.Fields[0].AsInteger;
+  finally
+    lQuery.Free;
+  end;
+end;
+
+
+procedure Alerta(const AMensagem: String);
+begin
+  MessageDlg(AMensagem, mtWarning, [mbOk], 0);
+end;
+
+end.

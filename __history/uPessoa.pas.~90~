@@ -1,0 +1,155 @@
+unit uPessoa;
+
+interface
+
+uses
+  Generics.Collections;
+
+type
+  TPessoa = class
+  private
+    FId: Integer;
+    FNome: String;
+    FDataNascimento: TDate;
+    FSaldoDevedor: Double;
+  public
+    property Id: Integer read FId write FId;
+    property Nome: String read FNome write FNome;
+    property DataNascimento: TDate read FDataNascimento write FDataNascimento;
+    property SaldoDevedor: Double read FSaldoDevedor write FSaldoDevedor;
+
+    function ConsultarId(const AId: Integer): Boolean;
+
+    procedure Post(const AListaPessoa: TObjectList<TPessoa>);
+    procedure Delete(const AId: Integer);
+    procedure Open(var AListaPessoa: TObjectList<TPessoa>);
+
+    constructor Create;
+    destructor Destroy; override;
+  end;
+
+implementation
+
+uses
+  FireDAC.Comp.Client,
+  uConnection;
+
+{ TPessoa }
+
+constructor TPessoa.Create;
+begin
+
+end;
+
+procedure TPessoa.Delete(const AId: Integer);
+begin
+  const lQuery = TFDQuery.Create(nil);
+  try
+    lQuery.Connection := Conexao.FDConnection;
+    lQuery.SQL.Add('DELETE FROM pessoa');
+    lQuery.SQL.Add('WHERE id = ?');
+    lQuery.ExecSQL(lQuery.SQL.Text, [AId]);
+  finally
+    lQuery.Free;
+  end;
+end;
+
+destructor TPessoa.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TPessoa.Open(var AListaPessoa: TObjectList<TPessoa>);
+begin
+  const lQuery = TFDQuery.Create(nil);
+
+  try
+    lQuery.Connection := Conexao.FDConnection;
+    lQuery.SQL.Add('SELECT id,');
+    lQuery.SQL.Add('       nome,');
+    lQuery.SQL.Add('       data_nascimento,');
+    lQuery.SQL.Add('       saldo_devedor');
+    lQuery.SQL.Add('FROM pessoa');
+    lQuery.SQL.Add('ORDER BY id');
+    lQuery.Open;
+
+    if lQuery.IsEmpty then
+      Exit;
+
+    var lExiste := False;
+    while not(lQuery.Eof) do
+    begin
+      for var lListaPessoa in AListaPessoa do
+      begin
+        if lListaPessoa.Id = lQuery.Fields[0].AsInteger then
+        begin
+          lExiste := True;
+          Continue;
+        end;
+      end;
+
+      if not(lExiste) then
+      begin;
+        const lPessoa = TPessoa.Create;
+        lPessoa.Id := lQuery.Fields[0].AsInteger;
+        lPessoa.Nome := lQuery.Fields[1].AsString;
+        lPessoa.DataNascimento := lQuery.Fields[2].AsDateTime;
+        lPessoa.SaldoDevedor := lQuery.Fields[3].AsFloat;
+        AListaPessoa.Add(lPessoa);
+      end;
+
+      lQuery.Next;
+    end;
+  finally
+    lQuery.Free;
+  end;
+end;
+
+procedure TPessoa.Post(const AListaPessoa: TObjectList<TPessoa>);
+begin
+  const lQuery = TFDQuery.Create(nil);
+  try
+    lQuery.Connection := Conexao.FDConnection;
+    lQuery.SQL.Add('INSERT INTO pessoa (id, nome, data_nascimento, saldo_devedor)');
+    lQuery.SQL.Add('VALUES (?, ?, ?, ?)');
+    lQuery.Params.ArraySize := AListaPessoa.Count;
+
+    var i := 0;
+    for var lPessoa in AListaPessoa do
+    begin
+      if ConsultarId(lPessoa.Id) then
+        Continue;
+
+      lQuery.Params[0].AsIntegers[i] := lPessoa.Id;
+      lQuery.Params[1].AsStrings[i] := lPessoa.Nome;
+      lQuery.Params[2].AsDateTimes[i] := lPessoa.DataNascimento;
+      lQuery.Params[3].AsFloats[i] := lPessoa.SaldoDevedor;
+
+      Inc(i);
+    end;
+
+    if i > 0 then
+      lQuery.Execute(AListaPessoa.Count, 0);
+  finally
+    lQuery.Free;
+  end;
+end;
+
+function TPessoa.ConsultarId(const AId: Integer): Boolean;
+begin
+  const lQuery = TFDQuery.Create(nil);
+  try
+    lQuery.Connection := Conexao.FDConnection;
+    lQuery.SQL.Add('SELECT id');
+    lQuery.SQL.Add('FROM pessoa');
+    lQuery.SQL.Add('WHERE id = ?');
+    lQuery.Open(lQuery.SQL.Text, [AId]);
+
+    Result := not(lQuery.IsEmpty);
+  finally
+    lQuery.Free;
+  end;
+end;
+
+end.
